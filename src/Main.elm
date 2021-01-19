@@ -1,4 +1,4 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 
 import Browser
@@ -38,6 +38,7 @@ type alias RenderState =
     { time : Time
     , textures : Textures
     , matrix : Transform.Matrix
+    , knobValue : Maybe ( KnobId, Value )
     }
 
 
@@ -87,7 +88,7 @@ intRenderer state n =
 
 highlanderRenderer : Renderer Highlander
 highlanderRenderer state _ =
-    stringRenderer state "👻"
+    imageRenderer state <| TextureAlias "unnamed"
 
 
 gooseRenderer : Renderer Goose
@@ -232,6 +233,11 @@ spiralRenderer : Renderer a -> Renderer (List a)
 spiralRenderer itemRenderer state items =
     let
         maxRadius = 150
+        kv =
+            case state.knobValue of
+                Just ( _, value ) ->
+                    toFloat value / 127
+                Nothing -> 0
         radius idx =
             30 + (idx / toFloat (List.length items)) * maxRadius
         angleCoef = 2 * pi / toFloat (List.length items) * 4
@@ -241,6 +247,7 @@ spiralRenderer itemRenderer state items =
                     ((radius idx) * cos (idx * angleCoef))
                     ((radius idx) * sin (idx * angleCoef))
                 |> Transform.translate 300 70
+                -- |> Transform.rotate (degrees <| kv * idx * sin (state.time / 500))
                 |> Transform.rotate (degrees <| idx * sin (state.time / 500))
         renderItems idx angle innerItems =
             case innerItems of
@@ -291,6 +298,7 @@ texturesToLoad =
     [ ( "./assets/goose_drawn.svg", "goose_drawn" )
     , ( "./assets/goose.png", "goose" )
     , ( "./assets/goose.svg", "goose_logo" )
+    , ( "./assets/unnamed.jpg", "unnamed" )
     ]
 
 
@@ -301,11 +309,11 @@ imageRenderer state (TextureAlias textureAlias) =
             [ Canvas.texture
                 [ apply
                     (state.matrix
-                        |> Transform.rotate (2 * pi * (sin <| state.time / 2000))
-                        |> Transform.scale 0.25 0.25
+                        --|> Transform.rotate (2 * pi * (sin <| state.time / 2000))
+                        --|> Transform.scale 0.25 0.25
                     )
                 ]
-                ( 0, 0 )
+                ( -20, 0 )
                 texture
 
             ]
@@ -316,6 +324,7 @@ type Msg
     = NoOp
     | GotTexture TextureAlias Canvas.Texture
     | Tick Float
+    | MidiKnob ( KnobId, Value )
 
 
 drawCanvas : RenderState -> Html.Html Msg
@@ -344,18 +353,7 @@ drawCanvas state =
 
         ::
 
-            {- ( gridRenderer
-                imageRenderer
-                { state
-                | matrix = Transform.init
-                }
-                <| List.repeat 10 (List.repeat 10 <| TextureAlias "goose_drawn")
-
-            ) -}
-
             (let
-                -- items = List.repeat 30 <| TextureAlias "goose_drawn"
-                -- itemRenderer = imageRenderer
                 items = List.repeat 100 ()
                 itemRenderer = unitRenderer
                 matrix = Transform.init
@@ -377,6 +375,15 @@ drawCanvas state =
                             |> Transform.rotate (degrees 30) }
                     )
                     items)
+
+            {- ( gridRenderer
+                imageRenderer
+                { state
+                | matrix = Transform.init
+                }
+                <| List.repeat 10 (List.repeat 10 <| TextureAlias "goose_drawn")
+
+            ) -}
 
             {- ( treeRenderer
                 gooseRenderer
@@ -415,6 +422,12 @@ update msg state =
             { state
             | time = state.time + dt
             }
+
+        MidiKnob ( knobId, value ) ->
+            { state
+            | knobValue = Just ( knobId, value )
+            }
+
     , Cmd.none
     )
 
@@ -426,6 +439,7 @@ init _ =
         { time = 0
         , textures = Dict.empty
         , matrix = Transform.init
+        , knobValue = Nothing
         }
     , Cmd.none
     )
@@ -439,5 +453,16 @@ main =
         , update = update
         , subscriptions =
             \_ ->
-                Browser.onAnimationFrameDelta Tick
+                Sub.batch
+                    [ Browser.onAnimationFrameDelta Tick
+                    , onMidiKnob MidiKnob
+                    ]
+
         }
+
+type alias KnobId = Int
+
+type alias Value = Int
+
+
+port onMidiKnob : ((KnobId, Value) -> msg) -> Sub msg

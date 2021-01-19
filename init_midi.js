@@ -2,6 +2,8 @@ var data, cmd, channel, type, note, velocity;
 
 let values = {};
 
+window.globalMidiHandler = null;
+
 // request MIDI access
 if (navigator.requestMIDIAccess) {
     navigator.requestMIDIAccess({
@@ -53,6 +55,9 @@ function onMIDIMessage(event) {
  //log(values);
  //log(values.cmd, values.channel, values.type, values.note, values.velocity);
     window.values = values;
+    if (window.globalMidiHandler) {
+        window.globalMidiHandler(values.cmd, values.channel, values.type, values.note, values.velocity);
+    }
 }
 
 function listInputs(inputs) {
