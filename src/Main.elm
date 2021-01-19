@@ -240,7 +240,8 @@ spiralRenderer itemRenderer state items =
                 |> Transform.translate
                     ((radius idx) * cos (idx * angleCoef))
                     ((radius idx) * sin (idx * angleCoef))
-                |> Transform.rotate (degrees angle)
+                |> Transform.translate 300 70
+                |> Transform.rotate (degrees <| idx * sin (state.time / 500))
         renderItems idx angle innerItems =
             case innerItems of
                 [] -> []
@@ -353,25 +354,25 @@ drawCanvas state =
             ) -}
 
             (let
+                -- items = List.repeat 30 <| TextureAlias "goose_drawn"
+                -- itemRenderer = imageRenderer
                 items = List.repeat 100 ()
-                nextState =
-                    { state
-                    | matrix = Transform.init
-                    }
+                itemRenderer = unitRenderer
+                matrix = Transform.init
             in
                 spiralRenderer
-                    unitRenderer
-                    { state | matrix = Transform.init }
+                    itemRenderer
+                    { state | matrix = matrix }
                     items
             ++ spiralRenderer
-                unitRenderer
+                itemRenderer
                 ({ state | matrix =
-                    Transform.init |> Transform.translate 30 60 })
+                    matrix |> Transform.translate 30 60 })
                 items
             ++ spiralRenderer
-                unitRenderer
+                itemRenderer
                     ({ state | matrix =
-                        Transform.init
+                        matrix
                             |> Transform.translate 200 100
                             |> Transform.rotate (degrees 30) }
                     )
